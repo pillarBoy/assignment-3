@@ -8,10 +8,10 @@ toolchain:
 	./scripts/init.sh
 
 build-full:
-	WASM_BUILD_TOOLCHAIN=nightly-2020-10-05 cargo build
-
+	WASM_BUILD_TOOLCHAIN=nightly-2020-10-05 cargo build --release
+	
 check:
-	SKIP_WASM_BUILD= cargo check
+	cargo +nightly-2020-10-06 check -p pallet-kitties
 
 build:
 	SKIP_WASM_BUILD= cargo build
