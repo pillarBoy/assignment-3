@@ -28,11 +28,11 @@ pub trait Trait: frame_system::Trait {
 decl_storage! {
 	trait Store for Module<T: Trait> as Kitties {
 		/// Stores all the kitties, key is the kitty id
-		pub Kitties get(fn kitties): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) u32 => Option<Kitty>;
+		pub Kitties get(fn get_kitty_by_id): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) u32 => Option<Kitty>;
 		/// Stores the next kitty ID
 		NextKittyId get(fn next_kitty_id): map hasher(blake2_128_concat) T::AccountId => u32;
 		// kitty id and accountId releationship mapping
-		KittyOwner get(fn owner_of): map hasher(blake2_128_concat) u32 => Option<T::AccountId>;
+		KittyOwner: map hasher(blake2_128_concat) u32 => Option<T::AccountId>;
 	}
 }
 
@@ -120,7 +120,13 @@ impl<T: Trait> Module<T> {
 	fn make_kitty(owner: T::AccountId, kitty_dna: [u8; 16]) {
 		let kitty_id = Self::next_kitty_id(&owner);
 
-		let kitty_gender = if kitty_dna[15]%2 == 0 {
+		let mut dna_feature = 0;
+
+		for dna_item in kitty_dna.iter() {
+			dna_feature += dna_item;
+		}
+		
+		let kitty_gender = if dna_feature%2 == 0 {
 			Some(Gender::Female)
 		} else {
 			Some(Gender::Male)
@@ -131,13 +137,11 @@ impl<T: Trait> Module<T> {
 			gender: kitty_gender
 		};
 
-
 		<Kitties<T>>::insert(&owner, kitty_id, new_kitty.clone());
 
 		<KittyOwner<T>>::insert(kitty_id, &owner);
 
 		<NextKittyId<T>>::insert(&owner, kitty_id + 1);
-
 
 		// Emit event
 		Self::deposit_event(RawEvent::KittyCreated(owner, kitty_id, new_kitty));

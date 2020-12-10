@@ -204,3 +204,22 @@ by appending your own. A few useful ones are as follow.
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
 ```
+
+
+
+# development Types JSON
+```json     
+{
+  "Gender": {
+    "_enum": [
+      "Female",
+      "Male"
+    ]
+  },
+  "Kitty": {
+    "dna": "[u8; 16]",
+    "gender": "Option<Gender>"
+  }
+}
+
+```

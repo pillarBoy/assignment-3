@@ -9,6 +9,9 @@ toolchain:
 
 build-full:
 	WASM_BUILD_TOOLCHAIN=nightly-2020-10-05 cargo build --release
+
+build-release:
+	cargo +nightly-2020-10-06 build --release
 	
 check:
 	cargo +nightly-2020-10-06 check -p pallet-kitties

@@ -1,5 +1,5 @@
 [package]
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+authors = ['pillaBoy <https://github.com/SubstrateDevAcademy/assignment-2-pillarBoy>']
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Unlicense'
