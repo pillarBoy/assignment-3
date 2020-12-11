@@ -32,3 +32,8 @@ init: toolchain build-full
 
 playground-run:
 	./target/release/node-template --dev --ws-external
+
+
+playground-set-git:
+	git config --global user.email "601991736@qq.com"
+	git config --global user.name "pillarBoy"
