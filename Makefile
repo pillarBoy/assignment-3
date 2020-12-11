@@ -11,10 +11,10 @@ build-full:
 	WASM_BUILD_TOOLCHAIN=nightly-2020-10-05 cargo build --release
 
 build-release:
-	cargo +nightly-2020-10-06 build --release
+	cargo +nightly-2020-10-05 build --release
 	
 check:
-	cargo +nightly-2020-10-06 check -p pallet-kitties
+	cargo +nightly-2020-10-05 check -p pallet-kitties
 
 build:
 	SKIP_WASM_BUILD= cargo build
@@ -28,3 +28,7 @@ purge:
 restart: purge run
 
 init: toolchain build-full
+
+
+playground-run:
+	./target/release/node-template --dev --ws-external
