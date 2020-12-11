@@ -217,6 +217,7 @@ by appending your own. A few useful ones are as follow.
     ]
   },
   "Kitty": {
+    "owner": "AccountId",
     "dna": "[u8; 16]",
     "gender": "Option<Gender>"
   }

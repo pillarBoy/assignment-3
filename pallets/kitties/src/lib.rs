@@ -2,7 +2,7 @@
 
 use codec::{Encode, Decode};
 use frame_support::{
-	decl_module, decl_storage, decl_event, decl_error, StorageDoubleMap,
+	decl_module, decl_storage, decl_event, decl_error,
 	traits::Randomness, RuntimeDebug,
 	ensure,
 };
@@ -16,7 +16,8 @@ pub enum Gender {
 }
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
-pub struct Kitty {
+pub struct Kitty<T> {
+	owner: T,
 	dna: [u8; 16],
 	gender: Option<Gender>,
 }
@@ -28,11 +29,11 @@ pub trait Trait: frame_system::Trait {
 decl_storage! {
 	trait Store for Module<T: Trait> as Kitties {
 		/// Stores all the kitties, key is the kitty id
-		pub Kitties get(fn get_kitty_by_id): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) u32 => Option<Kitty>;
+		pub Kitties get(fn get_kitty_by_id): map hasher(blake2_128_concat) u32 => Option<Kitty<T::AccountId>>;
 		/// Stores the next kitty ID
 		NextKittyId get(fn next_kitty_id): map hasher(blake2_128_concat) T::AccountId => u32;
 		// kitty id and accountId releationship mapping
-		KittyOwner: map hasher(blake2_128_concat) u32 => Option<T::AccountId>;
+		// KittyOwner get(fn get_owner_by_kitty_id): map hasher(blake2_128_concat) u32 => Option<T::AccountId>;
 	}
 }
 
@@ -41,7 +42,7 @@ decl_event! {
 		<T as frame_system::Trait>::AccountId,
 	{
 		/// A kitty is created. \[owner, kitty_id, kitty\]
-		KittyCreated(AccountId, u32, Kitty),
+		KittyCreated(AccountId, u32, Kitty<AccountId>),
 		// CreateKittyBaby(AccountId, u32, Kitty),
 	}
 }
@@ -50,7 +51,7 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		KittiesIdOverflow,
 		KittiesNonExistent,
-		KittiesParentSexChooseError,
+		// KittiesParentSexChooseError,
 		KittyParentError,
 		KittyGenderCanNotBeSame,
 	}
@@ -90,17 +91,23 @@ decl_module! {
 			let sender = ensure_signed(origin)?;
 
 			let kitty_id = Self::next_kitty_id(&sender);
-		
+			
+			// ensure kitty overflow
 			ensure!(kitty_id + 1 < u32::MAX, Error::<T>::KittiesIdOverflow);
 
-			ensure!(<KittyOwner<T>>::contains_key(kitty_a_id), Error::<T>::KittiesNonExistent);
-			ensure!(<KittyOwner<T>>::contains_key(kitty_b_id), Error::<T>::KittiesNonExistent);
- 
-			ensure!(<Kitties<T>>::get(&sender, kitty_a_id) != None, Error::<T>::KittyParentError);
-			ensure!(<Kitties<T>>::get(&sender, kitty_b_id) != None, Error::<T>::KittyParentError);
+			// kitty option
+			let kitty_a_option = <Kitties<T>>::get(kitty_a_id);
+			let kitty_b_option = <Kitties<T>>::get(kitty_b_id);
 
-			let kitty_a = <Kitties<T>>::get(&sender, kitty_a_id).unwrap();
-			let kitty_b = <Kitties<T>>::get(&sender, kitty_b_id).unwrap();
+			// ensure kitty existent
+			ensure!(kitty_a_option != None, Error::<T>::KittiesNonExistent);
+			ensure!(kitty_b_option != None, Error::<T>::KittiesNonExistent);
+
+			let kitty_a = kitty_a_option.unwrap();
+			let kitty_b = kitty_b_option.unwrap();
+ 
+			ensure!(kitty_a.owner == sender, Error::<T>::KittyParentError);
+			ensure!(kitty_b.owner == sender, Error::<T>::KittyParentError);
 
 			let kitty_baby_id = Self::next_kitty_id(&sender);
 
@@ -120,28 +127,27 @@ impl<T: Trait> Module<T> {
 	fn make_kitty(owner: T::AccountId, kitty_dna: [u8; 16]) {
 		let kitty_id = Self::next_kitty_id(&owner);
 
-		let mut dna_feature = 0;
+		let mut dna_feature:u8 = 0;
 
 		for dna_item in kitty_dna.iter() {
 			dna_feature += dna_item;
 		}
 		
-		let kitty_gender = if dna_feature%2 == 0 {
+		let kitty_gender = if dna_feature%2_u8 == 0 {
 			Some(Gender::Female)
 		} else {
 			Some(Gender::Male)
 		};
 
 		let new_kitty = Kitty {
+			owner: owner.clone(),
 			dna: kitty_dna,
 			gender: kitty_gender
 		};
 
-		<Kitties<T>>::insert(&owner, kitty_id, new_kitty.clone());
+		<Kitties<T>>::insert(kitty_id, new_kitty.clone());
 
-		<KittyOwner<T>>::insert(kitty_id, &owner);
-
-		<NextKittyId<T>>::insert(&owner, kitty_id + 1);
+		<NextKittyId<T>>::insert(&owner, kitty_id + 1_u32);
 
 		// Emit event
 		Self::deposit_event(RawEvent::KittyCreated(owner, kitty_id, new_kitty));
