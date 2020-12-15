@@ -4,10 +4,12 @@ use codec::{Encode, Decode};
 use frame_support::{
 	decl_module, decl_storage, decl_event, decl_error,
 	traits::Randomness, RuntimeDebug,
+	dispatch::DispatchResult,
 	ensure,
 };
 use sp_io::hashing::blake2_128;
 use frame_system::{ ensure_signed };
+use sp_runtime::DispatchError;
 
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, Eq)]
 pub enum Gender {
@@ -31,7 +33,8 @@ decl_storage! {
 		/// Stores all the kitties, key is the kitty id
 		pub Kitties get(fn get_kitty_by_id): map hasher(blake2_128_concat) u32 => Option<Kitty<T::AccountId>>;
 		/// Stores the next kitty ID
-		NextKittyId get(fn next_kitty_id): map hasher(blake2_128_concat) T::AccountId => u32;
+		pub NextKittyId get(fn next_kitty_id): u32 = 0;
+		// NextKittyId get(fn next_kitty_id): map hasher(blake2_128_concat) T::AccountId => u32;
 		// kitty id and accountId releationship mapping
 		// KittyOwner get(fn get_owner_by_kitty_id): map hasher(blake2_128_concat) u32 => Option<T::AccountId>;
 	}
@@ -43,7 +46,7 @@ decl_event! {
 	{
 		/// A kitty is created. \[owner, kitty_id, kitty\]
 		KittyCreated(AccountId, u32, Kitty<AccountId>),
-		// CreateKittyBaby(AccountId, u32, Kitty),
+		CreateKittyBaby(AccountId, u32, Kitty<AccountId>),
 	}
 }
 
@@ -65,15 +68,8 @@ decl_module! {
 
 		/// Create a new kitty
 		#[weight = 0]
-		pub fn create(origin) {
+		pub fn create(origin) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-
-			let kitty_id = Self::next_kitty_id(&sender);
-		
-			ensure!(kitty_id + 1 < u32::MAX, Error::<T>::KittiesIdOverflow);
-
-			// TODO: ensure kitty id does not overflow
-			// return Err(Error::<T>::KittiesIdOverflow.into());
 
 			// Generate a random 128bit value
 			let payload = (
@@ -82,18 +78,18 @@ decl_module! {
 				<frame_system::Module<T>>::extrinsic_index(),
 			);
 			let dna = payload.using_encoded(blake2_128);
+			let kitty_id = Self::next_kitty_id();
+			let new_kitty = Self::make_kitty(&sender, dna)?;
 
-			Self::make_kitty(sender, dna);
+			// Emit event
+			Self::deposit_event(RawEvent::KittyCreated(sender, kitty_id, new_kitty));
+			
+			Ok(())
 		}
 
 		#[weight = 100]
-		pub fn create_kitty_baby(origin, kitty_a_id: u32, kitty_b_id: u32) {
+		pub fn create_kitty_baby(origin, kitty_a_id: u32, kitty_b_id: u32) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-
-			let kitty_id = Self::next_kitty_id(&sender);
-			
-			// ensure kitty overflow
-			ensure!(kitty_id + 1 < u32::MAX, Error::<T>::KittiesIdOverflow);
 
 			// kitty option
 			let kitty_a_option = <Kitties<T>>::get(kitty_a_id);
@@ -109,23 +105,51 @@ decl_module! {
 			ensure!(kitty_a.owner == sender, Error::<T>::KittyParentError);
 			ensure!(kitty_b.owner == sender, Error::<T>::KittyParentError);
 
-			let kitty_baby_id = Self::next_kitty_id(&sender);
+			let kitty_baby_id = Self::next_kitty_id();
 
 			ensure!(kitty_a.gender != kitty_b.gender, Error::<T>::KittyGenderCanNotBeSame);
 
 			let baby_attr = (kitty_a.dna, kitty_b.dna, kitty_baby_id);
-
 			let kitty_baby_dna = baby_attr.using_encoded(blake2_128);
+			let new_kitty = Self::make_kitty(&sender, kitty_baby_dna)?;
 
-			Self::make_kitty(sender, kitty_baby_dna);
+			// Emit event
+			Self::deposit_event(RawEvent::CreateKittyBaby(sender, kitty_baby_id, new_kitty));
+
+			Ok(())
 		}
 	}
 }
 
 
 impl<T: Trait> Module<T> {
-	fn make_kitty(owner: T::AccountId, kitty_dna: [u8; 16]) {
-		let kitty_id = Self::next_kitty_id(&owner);
+	fn make_kitty(owner: &T::AccountId, kitty_dna: [u8; 16]) -> Result<Kitty<T::AccountId>, DispatchError> {
+		let kitty_id = Self::next_kitty_id();
+
+		// match kitty_id.checked_add(1) {
+		// 	Some(v) => {
+		// 		let mut dna_feature:u8 = 0;
+		// 		for dna_item in kitty_dna.iter() {
+		// 			dna_feature += dna_item;
+		// 		}
+		// 		let kitty_gender = if dna_feature%2_u8 == 0 {
+		// 			Some(Gender::Female)
+		// 		} else {
+		// 			Some(Gender::Male)
+		// 		};
+		// 		let new_kitty = Kitty {
+		// 			owner: owner.clone(),
+		// 			dna: kitty_dna,
+		// 			gender: kitty_gender
+		// 		};
+		
+		// 		<Kitties<T>>::insert(kitty_id, new_kitty.clone());
+		// 		NextKittyId::put(v);
+		// 	},
+		// 	None => {
+		// 		//
+		// 	}
+		// }
 
 		let mut dna_feature:u8 = 0;
 
@@ -146,10 +170,8 @@ impl<T: Trait> Module<T> {
 		};
 
 		<Kitties<T>>::insert(kitty_id, new_kitty.clone());
-
-		<NextKittyId<T>>::insert(&owner, kitty_id + 1_u32);
-
-		// Emit event
-		Self::deposit_event(RawEvent::KittyCreated(owner, kitty_id, new_kitty));
+		NextKittyId::put(kitty_id + 1_u32);
+		
+		Ok(new_kitty)
 	}
 }

@@ -1,5 +1,5 @@
 run-tmp:
-	SKIP_WASM_BUILD= cargo run -- --dev --tmp -lruntime=debug
+	SKIP_WASM_BUILD= cargo +nightly-2020-10-05 run -- --dev --tmp -lruntime=debug
 
 run:
 	SKIP_WASM_BUILD= cargo run -- --dev -lruntime=debug
